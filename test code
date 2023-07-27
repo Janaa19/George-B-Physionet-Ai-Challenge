@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 
 # Edit this script to add your team's code. Some functions are *required*, but you can edit most parts of the required functions,
 # change or remove non-required functions, and add your own functions.
@@ -12,12 +12,15 @@
 from helper_code import *
 import numpy as np, os, sys
 import mne
-from sklearn.model_selection import KFold
 from sklearn.impute import SimpleImputer
 import joblib
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
 from xgboost import XGBClassifier, XGBRegressor
+from xgboost.sklearn import XGBRFClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import cross_val_score
 
 ################################################################################
 #
@@ -71,40 +74,30 @@ def train_challenge_model(data_folder, model_folder, verbose):
         print('Training the Challenge model on the Challenge data...')
 
     # Define parameters for random forest classifier and regressor.
-    n_estimators   = 123  # Number of trees in the forest.
-    max_leaf_nodes = 456  # Maximum number of leaf nodes in each tree.
-    random_state   = 789  # Random state; set for reproducibility.
+    n_estimators   =  1000 
+    max_leaf_nodes = 30  
+    random_state   = 123 
 
     # Impute any missing features; use the mean value by default.
     imputer = SimpleImputer().fit(features)
-    features = imputer.transform(features)
 
 
     # Define several different classifiers
-    clf1 = XGBClassifier(n_estimators=n_estimators, max_depth=max_leaf_nodes, random_state=random_state, use_label_encoder=False, eval_metric='logloss')
+    clf1 = XGBRFClassifier(n_estimators=n_estimators, max_depth=max_leaf_nodes, random_state=random_state)
     clf2 = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_leaf_nodes, random_state=random_state)
     clf3 = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_leaf_nodes, random_state=random_state)
+    clf4 = SVC(probability=True, random_state=random_state)
+    clf5 = KNeighborsClassifier()
 
-    # Create a hard voting classifier
-    outcome_model = VotingClassifier(estimators=[('xgb', clf1), ('rf', clf2), ('gb', clf3)], voting='soft')
 
-  
-    # Cross-validation setup
-    cv = KFold(n_splits=5, shuffle=True, random_state=random_state)
+    # Create a soft voting classifier
+    outcome_model = VotingClassifier(estimators=[('xgb', clf1), ('rf', clf2), ('gb', clf3), ('svc', clf4), ('knn', clf5)], voting='soft')
 
-    # Cross-validation on the outcome model
-    scores = cross_val_score(outcome_model, features, outcomes.ravel(), cv=cv, scoring='accuracy')
-    print("Outcome model cross-validation accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
-  
     # Train the models.
     features = imputer.transform(features)
     outcome_model = outcome_model.fit(features, outcomes.ravel()) # Train the voting classifier
     cpc_model = XGBRegressor(n_estimators=n_estimators, max_depth=max_leaf_nodes, random_state=random_state).fit(features, cpcs.ravel())
   
-   
-    # Train the cpc model
-    cpc_model.fit(features, cpcs.ravel())
-
     # Save the models.
     save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
 
@@ -134,10 +127,12 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # Apply models to features.
     outcome = outcome_model.predict(features)[0]
     outcome_probability = outcome_model.predict_proba(features)[0, 1]
-    cpc = cpc_model.predict(features)[0]
 
     # Ensure that the CPC score is between (or equal to) 1 and 5.
+    cpc = cpc_model.predict(features)[0]
     cpc = np.clip(cpc, 1, 5)
+
+
 
     return outcome, outcome_probability, cpc
 
