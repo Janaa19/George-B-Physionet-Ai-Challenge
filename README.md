@@ -1,0 +1,3 @@
+George B. Moody PhysioNet Challenge 2023
+
+The George B. Moody PhysioNet Challenge 2023 is a collaborative effort focused on predicting neurological recovery in comatose patients post-cardiac arrest through the development of machine learning models. With an extensive dataset from seven academic hospitals, encompassing continuous EEG and ECG recordings from 1,020 patients, participants are challenged to create open-source algorithms. These algorithms will utilize both clinical information and monitoring data to predict the level of neurological recovery. By fostering the development of machine learning solutions, the challenge aims to advance the field of coma prognostication, offering a more accurate and accessible approach to critical care scenarios.
